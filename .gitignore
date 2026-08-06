@@ -1,0 +1,42 @@
+# Terraform state -- contains account ID, resource ARNs, and other
+# deployment-specific details. Never commit these.
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+.terraform\
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+
+# Terraform variable files that might hold backend config or secrets
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Build artifacts -- regenerate on `terraform apply` / `npm run build`
+build\
+dist\
+frontend\dist\
+frontend\node_modules\
+build/
+dist/
+frontend/dist/
+frontend/node_modules/
+
+# Environment files with real, deployment-specific values
+frontend\.env
+frontend\.env.production
+frontend\.env.local
+frontend\.env.*.local
+frontend/.env
+frontend/.env.production
+frontend/.env.local
+frontend/.env.*.local
+
+# Misc local testing output
+response.json
+*.log
