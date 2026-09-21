@@ -217,6 +217,16 @@ def process_game(game_id):
     # Use batch_writer context manager for high-throughput DynamoDB writes
     with PBP_TABLE.batch_writer() as batch:
         for play in plays:
+            # Only shots ever get read by the app (query API / frontend
+            # both filter on SHOT_EVENT_TYPES), and non-shot plays (faceoffs,
+            # period-start/end, stoppages, etc.) frequently have no
+            # eventOwnerTeamId at all -- which writes team_tricode as "",
+            # and DynamoDB rejects an empty string as a GSI key (team-index
+            # is keyed on team_tricode), aborting the whole batch write.
+            # Skipping non-shot plays avoids that entirely.
+            if play.get("typeDescKey") not in SHOT_EVENT_TYPES:
+                continue
+
             event_id = play.get("eventId")
             if event_id is None:
                 continue
