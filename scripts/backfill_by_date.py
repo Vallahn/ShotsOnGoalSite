@@ -1,31 +1,4 @@
-"""
-One-off backfill for a single date's games -- for catching up after the
-live pbp_ingest pipeline missed some or all of a day (e.g. the daily
-schedule_toggle check got a false negative from the NHL API and left
-ingestion disabled all day).
 
-Unlike backfill_full_season.py, this does NOT restrict to regular season /
-playoffs (GAME_TYPES_TO_BACKFILL) -- it ingests every game on the given
-date's slate, preseason included, since the whole point is "get me
-whatever happened on this specific day" rather than building out
-season-long stats. It also doesn't skip games that already have some rows
-in NHL_PlayByPlay for two reasons: 1) put_item on (game_id, event_id) is
-idempotent, so re-writing is harmless, and 2) for a game that's still LIVE
-right now, we want the full up-to-the-minute play-by-play, not to skip it
-because a handful of events already trickled in.
-
-Uses the exact same ingestion logic as lambda_pbp_ingest.py / backfill_full_season.py
--- team attribution, direction-normalized coordinates, dressed rosters.
-
-Run locally:
-    pip install boto3 requests --break-system-packages
-    python backfill_by_date.py 2026-09-20
-
-Date must be in the NHL API's own YYYY-MM-DD form. Defaults to today
-(UTC) if omitted -- pass an explicit date if "today" in UTC isn't the
-game day you mean (e.g. checking this in the evening US-Central, UTC has
-already rolled to the next calendar day).
-"""
 import sys
 import time
 from datetime import datetime, timezone
@@ -42,10 +15,7 @@ SHOT_EVENT_TYPES = {"shot-on-goal", "goal", "missed-shot", "blocked-shot"}
 
 
 def get_game_ids_for_date(date_str):
-    """Pulls every game on the given date's slate from the NHL schedule
-    endpoint (gameType included, unlike backfill_full_season.py), keyed
-    off the gameWeek entry whose own `date` matches -- the endpoint
-    returns a full week, not just the requested day."""
+
     url = f"https://api-web.nhle.com/v1/schedule/{date_str}"
     res = requests.get(url, timeout=10)
     res.raise_for_status()
@@ -58,9 +28,7 @@ def get_game_ids_for_date(date_str):
 
 
 def compute_period_attacking_sides(plays, home_abbrev, team_id_to_tricode):
-    """Which side ("left"/"right") the HOME team attacks, per period,
-    derived from where the home team's own shot attempts cluster -- the
-    NHL API's homeTeamDefendingSide field isn't reliably present."""
+
     tallies = {}
     all_periods = set()
 

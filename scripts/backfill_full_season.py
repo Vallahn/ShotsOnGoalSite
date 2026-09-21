@@ -1,19 +1,4 @@
-"""
-Full initial backfill: populates NHL_PlayByPlay, NHL_Games, and
-NHL_GameRosters from scratch for an entire season, using the exact same
-ingestion logic as lambda_pbp_ingest.py (team attribution, direction-
-normalized coordinates, game metadata, dressed rosters) -- so a fresh
-deployment doesn't need to also run the other backfill_*.py scripts
-afterward. Those scripts remain useful if you already have partial data
-and only need to add one specific field.
 
-Run locally, once per season you want to backfill:
-    pip install boto3 requests
-    python backfill_full_season.py 20252026
-
-Safe to re-run / resume: games that already have play-by-play rows are
-skipped, so an interrupted run can just be started again.
-"""
 import sys
 import time
 import boto3
@@ -39,8 +24,7 @@ GAME_TYPES_TO_BACKFILL = {2, 3}
 
 
 def get_season_game_ids(season):
-    """Enumerates every game_id for the season by walking each team's full
-    schedule and deduping (every game appears on two teams' schedules)."""
+
     game_ids = set()
     for team in TEAMS:
         url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{season}"
@@ -65,9 +49,7 @@ def already_ingested(game_id):
 
 
 def compute_period_attacking_sides(plays, home_abbrev, team_id_to_tricode):
-    """Which side ("left"/"right") the HOME team attacks, per period,
-    derived from where the home team's own shot attempts cluster --
-    the NHL API's homeTeamDefendingSide field isn't reliably present."""
+
     tallies = {}
     all_periods = set()
 
@@ -182,11 +164,7 @@ def backfill_game(game_id):
 
     with PBP_TABLE.batch_writer() as batch:
         for play in plays:
-            # Only shots ever get read by the app, and non-shot plays
-            # (faceoffs, period-start/end, stoppages, etc.) frequently have
-            # no eventOwnerTeamId -- which writes team_tricode as "", and
-            # DynamoDB rejects an empty string as a GSI key (team-index is
-            # keyed on team_tricode), aborting the whole batch write.
+
             if play.get("typeDescKey") not in SHOT_EVENT_TYPES:
                 continue
 

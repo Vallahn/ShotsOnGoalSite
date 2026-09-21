@@ -19,23 +19,31 @@ RULE_NAME = "nhl_pbp_ingest_schedule"
 
 
 def games_scheduled_today():
-    """True only if a game's own gameDate matches today's actual date.
+    """True if there's at least one game on today's UTC-date slate.
 
-    /v1/score/now does NOT reliably return an empty games list during
-    the off-season -- it can return a preview of the next scheduled game
-    day instead (e.g. season-opener night), still tagged gameState "FUT",
-    weeks or months before it actually happens. So we can't just check
-    whether the array is non-empty; we have to check that at least one
-    game's gameDate is genuinely today.
+    Originally checked /v1/score/now and compared each game's gameDate
+    against today -- but /v1/score/now has its own internal "current
+    game day" that lags the real calendar date by several hours (its own
+    currentDate field can still read yesterday well into the next
+    morning), so that comparison reliably found nothing every day this
+    check runs (7am Central), not just on the off-season edge case the
+    old comment above was guarding against.
+
+    /v1/schedule/{date} doesn't have that lag -- it returns a given
+    date's games correctly even weeks in advance -- so we ask it about
+    today directly instead of relying on a "current" feed to have caught
+    up yet.
     """
-    url = "https://api-web.nhle.com/v1/score/now"
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    url = f"https://api-web.nhle.com/v1/schedule/{today}"
     res = requests.get(url, timeout=8)
     res.raise_for_status()
     payload = res.json()
 
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    games = payload.get("games", [])
-    return any(g.get("gameDate") == today for g in games)
+    for day in payload.get("gameWeek", []):
+        if day.get("date") == today:
+            return len(day.get("games", [])) > 0
+    return False
 
 
 def lambda_handler(event, context):

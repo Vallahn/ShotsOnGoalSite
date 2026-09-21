@@ -1,34 +1,4 @@
-"""
-Spot-checks NHL_PlayByPlay against the NHL's own official boxscore, to
-answer a concrete question: is last season's backfilled data actually
-complete, or does it have gaps from the GSI/empty-team_tricode bug that
-was breaking backfill_by_date.py (fixed) and, likely, backfill_full_season.py
-and lambda_pbp_ingest.py (not yet fixed -- see below)?
 
-For each sampled game, compares:
-  - "shots on goal" (SOG) per team, from the NHL's own boxscore endpoint
-    (the same number you'd see on NHL.com) -- this only counts
-    shot-on-goal + goal, not missed/blocked attempts, since that's the
-    stat the NHL actually publishes and lets us check against.
-  - the same count, computed from whatever is currently sitting in your
-    NHL_PlayByPlay DynamoDB table for that exact game_id.
-
-A mismatch means that game is missing shot events in DynamoDB (a real
-gap from the backfill bug) -- an exact match means that game backfilled
-cleanly.
-
-Read-only: does not write anything to DynamoDB or call any AWS mutating
-API. Safe to run repeatedly / for spot-checks.
-
-Usage:
-    pip install boto3 requests --break-system-packages
-
-    # Check N random regular-season/playoff games from a season:
-    python verify_backfill.py --season 20252026 --sample 15
-
-    # Or check specific games you care about:
-    python verify_backfill.py --game-ids 2025020450,2025020612
-"""
 import argparse
 import random
 import time
@@ -75,8 +45,7 @@ def get_season_game_ids(season):
 
 
 def official_sog(game_id):
-    """Official shots-on-goal per team, from the NHL's own boxscore --
-    the same number displayed on NHL.com for this game."""
+
     url = f"https://api-web.nhle.com/v1/gamecenter/{game_id}/boxscore"
     res = requests.get(url, timeout=10)
     res.raise_for_status()
@@ -90,8 +59,7 @@ def official_sog(game_id):
 
 
 def dynamo_sog(game_id):
-    """SOG per team, counted from whatever's actually in NHL_PlayByPlay
-    for this game_id right now."""
+
     resp = PBP_TABLE.query(KeyConditionExpression=Key("game_id").eq(game_id))
     items = resp.get("Items", [])
     while "LastEvaluatedKey" in resp:
